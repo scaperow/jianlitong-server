@@ -1,0 +1,352 @@
+<!DOCTYPE HTML>
+
+<head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+    <title>Resume</title>
+
+    <style type="text/stylesheet">
+        body {
+    background: #fff;
+    font: 15px Arial, Helvetica, sans-serif;
+    line-height: 1.4;
+    margin: 50px 0;
+    margin-bottom: 100px;
+    }
+    em {
+        color: #999;
+    }
+    p {
+        line-height: 1.4;
+    }
+    ul {
+        margin-bottom: 0;
+    }
+    section {
+        margin-bottom: 2em;
+    }
+    blockquote {
+        margin: 0;
+        margin-bottom: 1em;
+    }
+    .item {
+        margin-bottom: 1em;
+    }
+    #resume {
+        margin: 0 auto;
+        max-width: 480px;
+        padding: 0 20px;
+    }
+    #basics {
+        margin-bottom: -10px;
+    }
+    #basics h3 {
+        margin-top: 1.5em;
+    }
+    #basics .contact strong,
+    #location strong {
+        clear: both;
+        float: left;
+        line-height: 1.3;
+        width: 120px;
+    }
+    #profiles,
+    #skills {
+        overflow: hidden;
+    }
+    #profiles .item,
+    #skills .item {
+        float: left;
+        width: 50%;
+    }
+    </style>
+
+    <script src="https://code.jquery.com/jquery-2.1.1.min.js" type="text/javascript"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0/handlebars.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script type="text/javascript">
+        /*global Handlebars */
+        /*global jQuery */
+        /*
+         * this file is a basic helper utility for people
+         * using handlebars.js. it allowes you to store several
+         * handlebars templates seperated with
+         *
+         *       <!--#?templateid-->
+         *
+         *
+         *       <!--#?end-->
+         *
+         * Created by Peter de Croos (Cultofmetatron)
+         * blog.peterdecroos.com
+         */
+
+        (function ($) {
+            'use strict';
+            var methods;
+
+            methods = {
+                initialize: function () { },
+                parseName: function (url) {
+                    var splitName, splitUrl, name;
+
+                    splitUrl = url.split('/');
+                    //get everything past the last slash
+                    name = splitUrl[splitUrl.length - 1];
+                    //strip querystring
+                    name = name.split('?')[0];
+                    splitName = name.split('.');
+                    if (splitName.length > 1) {
+                        //strip extension
+                        splitName = splitName.slice(0, -1);
+                    }
+                    return splitName.join('.');
+                },
+                parsePartials: function (data) {
+                    var endToken, separatorToken, END_TOKEN_SIZE,
+                        templates;
+                    //first we seperate the strings with a regular expression
+                    separatorToken = /<!--#\?[a-zA-Z]+-->/; //matches the headers
+                    endToken = /<!--#\?end-->/;
+                    END_TOKEN_SIZE = 12;
+                    templates = {};
+                    // now we get the names of the partials
+                    //  first remove all white space characters that are in groups > 2
+                    data = data.split('\n').join('').split(/\s{2,}/).join('');
+                    // now that we have a whitespace stripped version,
+                    //  we loop through chunking them.
+                    // get the first token and extract the key
+                    while (data.match(separatorToken)) {
+                        var token = data.match(separatorToken)[0]; //gets the first token
+                        var name = token.match(/[a-zA-Z]+/)[0];//the name we get token
+                        data = data.slice(token.length);
+                        // feed in characters till you get to the end tag.
+                        var endIndex = data.search(endToken);
+                        var source = data.slice(0, endIndex);
+                        // increment to the next size;
+                        data = data.slice(endIndex + END_TOKEN_SIZE);
+                        templates[name] = Handlebars.compile(source);
+                    }
+                    // register partials for use within Handlebars templates
+                    // for usage, see https://github.com/wycats/handlebars.js/#partials
+                    for (var key in templates) {
+                        if (Object.prototype.hasOwnProperty.call(templates, key)) {
+                            methods.registerPartial(key, templates[key]);
+                        }
+                    }
+                },
+                registerPartial: function (key, partial) {
+                    Handlebars.registerPartial(key, partial);
+                },
+                mainTemplates: function (context) {
+                    var pipe = [];//promise objects
+                    context.find('[type="text/x-handlebars-template"]')
+                        .each(function (index, element) {
+                            jQuery.handlebarTemplates['boilerplate'] = Handlebars.compile(element.innerText);
+
+                        });
+                    return pipe;
+                },
+                partials: function (context) {
+                    //we take the nodes and pull out partials
+                    var pipe = [];//promise objects
+                    context.find('[type="text/x-handlebars-partial"]')
+                        .each(function (index, element) {
+                            //handlebarTemplates = Handlebars.compile($(element).html());
+                            var loadUrl = $(element).attr('src');
+                            //gather the promises
+                            pipe.push(
+                                $.ajax({
+                                    url: loadUrl,
+                                    dataType: 'text'
+                                }).done(function (data) {
+                                    //each pageload is performed asynchronously and so the data exists only in this
+                                    //context. here we scrub the input and use it;
+                                    methods.parsePartials(data);
+                                })
+                            );
+                        });
+                    return pipe;
+                }
+            };
+            $.fn.autoBars = function (options, callback) {
+                var args = Array.prototype.slice.call(arguments, 0);
+                if (args.length === 1 && typeof (args[0]) === 'function') {
+                    //checks if there's only one argument and sets the
+                    // callback to be the first
+                    callback = options;
+                    options = {};
+                }
+                //so we don't overwrite it
+                jQuery.handlebarTemplates = jQuery.handlebarTemplates || {};
+                jQuery.handlebarTemplates.partials =
+                    jQuery.handlebarTemplates.partials || {};
+                var settings = $.extend({
+                    loadHandlebars: false,
+                }, options);
+
+                // gather all the promises from the multiple async calls
+                var partialPromises = methods.partials(this);
+                var templatesPromises = methods.mainTemplates(this);
+                var promises = partialPromises.concat(templatesPromises);
+
+                // we delay execution of the callback until all
+                //  the promises are fulfilled!!
+                if (typeof (callback) === 'function') {
+                    $.when.apply(this, promises).done(callback);
+                }
+                // return the original jquery object
+                return this;
+            };
+        })(jQuery);
+
+    </script>
+
+    <script type="text/x-handlebars-template">
+        {{  template | safe }}
+    </script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $(document).autoBars(function () {
+
+                var data = {
+                    "resume": {
+                        "basics": {
+                            "name": "Richard Hendriks",
+                            "label": "Programmer",
+                            "picture": "",
+                            "email": "richard.hendriks@gmail.com",
+                            "phone": "(912) 555-4321",
+                            "website": "http://richardhendricks.com",
+                            "summary": "Richard hails from Tulsa. He has earned degrees from the University of Oklahoma and Stanford. (Go Sooners and Cardinals!) Before starting Pied Piper, he worked for Hooli as a part time software developer. While his work focuses on applied information theory, mostly optimizing lossless compression schema of both the length-limited and adaptive variants, his non-work interests range widely, everything from quantum computing to chaos theory. He could tell you about it, but THAT would NOT be a “length-limited” conversation!",
+                            "location": {
+                                "address": "2712 Broadway St",
+                                "postalCode": "CA 94115",
+                                "city": "San Francisco",
+                                "countryCode": "US",
+                                "region": "California"
+                            },
+                            "profiles": [
+                                {
+                                    "network": "Twitter",
+                                    "username": "neutralthoughts",
+                                    "url": ""
+                                },
+                                {
+                                    "network": "SoundCloud",
+                                    "username": "dandymusicnl",
+                                    "url": "https://soundcloud.com/dandymusicnl"
+                                }
+                            ]
+                        },
+                        "work": [
+                            {
+                                "company": "Pied Piper",
+                                "position": "CEO/President",
+                                "website": "http://piedpiper.com",
+                                "startDate": "2013-12-01",
+                                "endDate": "2014-12-01",
+                                "summary": "Pied Piper is a multi-platform technology based on a proprietary universal compression algorithm that has consistently fielded high Weisman Scores™ that are not merely competitive, but approach the theoretical limit of lossless compression.",
+                                "highlights": [
+                                    "Build an algorithm for artist to detect if their music was violating copy right infringement laws",
+                                    "Successfully won Techcrunch Disrupt",
+                                    "Optimized an algorithm that holds the current world record for Weisman Scores"
+                                ]
+                            }
+                        ],
+                        "volunteer": [
+                            {
+                                "organization": "CoderDojo",
+                                "position": "Teacher",
+                                "website": "http://coderdojo.com/",
+                                "startDate": "2012-01-01",
+                                "endDate": "2013-01-01",
+                                "summary": "Global movement of free coding clubs for young people.",
+                                "highlights": [
+                                    "Awarded 'Teacher of the Month'"
+                                ]
+                            }
+                        ],
+                        "education": [
+                            {
+                                "institution": "University of Oklahoma",
+                                "area": "Information Technology",
+                                "studyType": "Bachelor",
+                                "startDate": "2011-06-01",
+                                "endDate": "2014-01-01",
+                                "gpa": "4.0",
+                                "courses": [
+                                    "DB1101 - Basic SQL",
+                                    "CS2011 - Java Introduction"
+                                ]
+                            }
+                        ],
+                        "awards": [
+                            {
+                                "title": "Digital Compression Pioneer Award",
+                                "date": "2014-11-01",
+                                "awarder": "Techcrunch",
+                                "summary": "There is no spoon."
+                            }
+                        ],
+                        "publications": [
+                            {
+                                "name": "Video compression for 3d media",
+                                "publisher": "Hooli",
+                                "releaseDate": "2014-10-01",
+                                "website": "http://en.wikipedia.org/wiki/Silicon_Valley_(TV_series)",
+                                "summary": "Innovative middle-out compression algorithm that changes the way we store data."
+                            }
+                        ],
+                        "skills": [
+                            {
+                                "name": "Web Development",
+                                "level": "Master",
+                                "keywords": [
+                                    "HTML",
+                                    "CSS",
+                                    "Javascript"
+                                ]
+                            },
+                            {
+                                "name": "Compression",
+                                "level": "Master",
+                                "keywords": [
+                                    "Mpeg",
+                                    "MP4",
+                                    "GIF"
+                                ]
+                            }
+                        ],
+                        "languages": [
+                            {
+                                "language": "English",
+                                "fluency": "Native speaker"
+                            }
+                        ],
+                        "interests": [
+                            {
+                                "name": "Wildlife",
+                                "keywords": [
+                                    "Ferrets",
+                                    "Unicorns"
+                                ]
+                            }
+                        ],
+                        "references": [
+                            {
+                                "name": "Erlich Bachman",
+                                "reference": "It is my pleasure to recommend Richard, his performance working as a consultant for Main St. Company proved that he will be a valuable addition to any company."
+                            }
+                        ]
+                    }
+                };
+
+                var $html = $.handlebarTemplates['boilerplate'](data);
+                $('body').append($html);
+            })
+        })
+    </script>
+</head>
+
+<body>
+</body>

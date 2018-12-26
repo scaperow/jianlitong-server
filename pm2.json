@@ -1,0 +1,26 @@
+{
+  "apps": [{
+    "name": "jianlitong-server",
+    "script": "production.js",
+    "cwd": "D:\code\jianlitong-server",
+    "exec_mode": "fork",
+    "max_memory_restart": "1G",                                                                                                                                                                                                                                                                                                                                                                       1                                                                                                                                                       
+    "autorestart": true,
+    "node_args": [],
+    "args": [],
+    "env": {
+      
+    }
+  }]
+}
+                                                          
+                                                                           
+                                                                                
+                                                                                    
+                                                                                         
+                                                                                              
+                                                                                                   
+                                                                                                        
+                                                                                                             
+                                                                                                                  
+                                                                                                                                                                                                                           
